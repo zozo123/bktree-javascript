@@ -1,7 +1,7 @@
 name: One-shot 1F916 provenance
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened]
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   post:
-    if: "${{ github.event.pull_request.head.ref == 'trigger-1f916-provenance-v1' && github.event.pull_request.head.repo.full_name == github.repository }}"
+    if: "${{ github.head_ref == 'trigger-1f916-provenance-v2' }}"
     runs-on: ubuntu-latest
     timeout-minutes: 3
     env:
