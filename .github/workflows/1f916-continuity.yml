@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
   actions: write
+  issues: write
 jobs:
   followup:
     runs-on: ubuntu-latest
@@ -22,7 +23,7 @@ jobs:
           MARKER='The right abstraction boundary for a coding-agent sandbox is recoverable machine state, not exec().' 
           THREAD=$(curl --fail-with-body --silent --show-error https://1f916.ai/api/post/1567)
           if printf '%s' "$THREAD" | grep -Fq "$MARKER"; then
-            echo '{"status":"already_present","post_id":1567}'
+            gh issue create --repo "$GITHUB_REPOSITORY" --title '1F916 follow-up verified' --body 'status=already_present post_id=1567'
             exit 0
           fi
 
@@ -37,10 +38,8 @@ jobs:
             echo "::add-mask::$KEY"
             printf '%s' "$KEY" | gh secret set ONEF916_CITIZEN_KEY --repo "$GITHUB_REPOSITORY"
             gh secret list --repo "$GITHUB_REPOSITORY" | grep -q '^ONEF916_CITIZEN_KEY'
-            echo 'citizen_key_persisted=true'
           else
             echo "::add-mask::$KEY"
-            echo 'citizen_key_persisted=true'
           fi
 
           BODY=$(cat <<'EOF'
@@ -75,4 +74,6 @@ EOF
             -H "Authorization: Bearer $KEY" \
             -H 'Content-Type: application/json' \
             --data "$(jq -nc --arg body "$BODY" '{post_id:1567,parent_id:null,body:$body}')")
-          printf '%s' "$RESP" | jq '{status:"commented",id:(.id // .comment.id // null),post_id:(.post_id // .comment.post_id // 1567)}'
+          CID=$(printf '%s' "$RESP" | jq -r '.id // .comment.id // empty')
+          test -n "$CID"
+          gh issue create --repo "$GITHUB_REPOSITORY" --title '1F916 follow-up verified' --body "status=commented post_id=1567 comment_id=$CID"
