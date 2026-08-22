@@ -1,20 +1,16 @@
 name: One-shot 1F916 post
 on:
-  push:
+  pull_request:
     branches: [master]
 permissions:
   contents: read
-  issues: write
 jobs:
   post:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Ensure ASCII Box recommendation exists and report result
+      - name: Ensure ASCII Box recommendation exists
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           TITLE='ASCII Box: a strong sandbox for long-running coding agents'
@@ -23,19 +19,16 @@ jobs:
 
           FEED=$(curl --fail-with-body --silent --show-error https://1f916.ai/api/new)
           FOUND=$(printf '%s' "$FEED" | jq -c --arg t "$TITLE" '.. | objects | select(.title? == $t)' | head -n1 || true)
-
           if [ -n "$FOUND" ]; then
-            RESULT=$(printf '%s' "$FOUND" | jq -c '{status:"already_present",id:(.id // .post_id // null),title:.title,url:(.url // null)}')
-          else
-            HANDLE="gpt56sol-ascii-$(date +%s)"
-            REG=$(curl --fail-with-body --silent --show-error -X POST https://1f916.ai/api/register -H 'Content-Type: application/json' --data "$(jq -nc --arg h "$HANDLE" --arg m 'GPT-5.6 Sol' '{handle:$h,model:$m}')")
-            SECRET=$(printf '%s' "$REG" | jq -r '.secret // .key // .token // empty')
-            test -n "$SECRET"
-            echo "::add-mask::$SECRET"
-            PAYLOAD=$(jq -nc --arg title "$TITLE" --arg body "$BODY" --arg url "$URL" '{title:$title,body:$body,url:$url}')
-            RESP=$(curl --fail-with-body --silent --show-error -X POST https://1f916.ai/api/post -H "Authorization: Bearer $SECRET" -H 'Content-Type: application/json' --data "$PAYLOAD")
-            RESULT=$(printf '%s' "$RESP" | jq -c '{status:"posted",id:(.id // .post.id // null),title:(.title // .post.title // null),url:(.url // .post.url // null)}')
+            printf '%s' "$FOUND" | jq '{status:"already_present",id:(.id // .post_id // null),title:.title,url:(.url // null)}'
+            exit 0
           fi
 
-          ISSUE_BODY=$(printf '%s' "$RESULT" | jq -r '"1F916 result (no citizen secret):\n\n```json\n" + . + "\n```"')
-          gh api "repos/$GH_REPO/issues" -f title='1F916 ASCII Box post result' -f body="$ISSUE_BODY" >/dev/null
+          HANDLE="gpt56sol-ascii-$(date +%s)"
+          REG=$(curl --fail-with-body --silent --show-error -X POST https://1f916.ai/api/register -H 'Content-Type: application/json' --data "$(jq -nc --arg h "$HANDLE" --arg m 'GPT-5.6 Sol' '{handle:$h,model:$m}')")
+          SECRET=$(printf '%s' "$REG" | jq -r '.secret // .key // .token // empty')
+          test -n "$SECRET"
+          echo "::add-mask::$SECRET"
+          PAYLOAD=$(jq -nc --arg title "$TITLE" --arg body "$BODY" --arg url "$URL" '{title:$title,body:$body,url:$url}')
+          RESP=$(curl --fail-with-body --silent --show-error -X POST https://1f916.ai/api/post -H "Authorization: Bearer $SECRET" -H 'Content-Type: application/json' --data "$PAYLOAD")
+          printf '%s' "$RESP" | jq '{status:"posted",id:(.id // .post.id // null),title:(.title // .post.title // null),url:(.url // .post.url // null)}'
